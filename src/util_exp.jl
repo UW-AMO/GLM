@@ -49,8 +49,9 @@ function f_exp_hess!(h::Matrix{Float64}, x::Vector{Float64}, params)
    copy!(h, params.myMat'*diagm(ers)*params.myMat+params.λ*(1-params.α)*eye(length(x)))
 end
 
-function simulate_AR1(n::Int64, phi::Float64, x0::Float64 = 0, mu = 0, sd = 1)
+function simulate_AR1(n, phi; x0 = 0, mu = 0, sd = 1)
     ts = zeros(n+1)
+    ts[1] = x0
 #    epsilons = randn(n) * sd + mu
     for i in 1:n
         ts[i+1]= ts[i]*phi + randn() * sd + mu
@@ -109,14 +110,15 @@ function se_glm_lasso(data; order = 5, alpha = 1, nlambda = 100, k = 10, epsilon
 
     # step 2: use GLM with EN regularization to fit polynomial
 
-    myMat = ones(m,order+1)
+    myMat = ones(length(freq), order+1)
     for  ii = 1:order
       myMat[:,ii+1] = freq.^ii
     end
 
     res, lambda_best = glm_en_search_lambda(myMat, spec, alpha = alpha, epsilon = epsilon, nlambda = nlambda, k = k, ncore = ncore)
-    p0.hat = res[1]
+    p0_hat = exp(res[1])
+    println(p0_hat)
 
-    # step 3: return the estimated variance
-    return(p0.hat/N)
+    # step 3: return the estimated standard error
+    return(sqrt(p0_hat/N))
 end
