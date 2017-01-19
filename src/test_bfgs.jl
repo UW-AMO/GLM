@@ -6,7 +6,7 @@ include("util_exp.jl")
 include("kfold_cv.jl")
 
 # we are testing the standard error of the sample mean for AR1 with N(0,1) innovation
-phi = 0.0
+phi = 0.3
 mu = 0
 sd = 1
 
@@ -33,7 +33,7 @@ params.λ = λ
 params.α = α
 
 # use bfgs to solve the glm problem with exponential distribution
-res_bfgs = fit_glm_lasso_exp(params)
+x_bfgs = fit_glm_lasso_exp(params)
 
 # use Convex.jl to solve the same problem, the solver is SCS
 
@@ -42,13 +42,13 @@ x = Variable(order + 1)
 
 # The problem is to minimize ||Ax - b||^2 subject to x >= 0
 # This can be done by: minimize(objective, constraints)
-problem = minimize(sum((params.spec).*exp(params.myMat*x) - params.myMat*x)+ params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*norm(x)^2))
+problem = minimize(sum((params.spec).*exp(params.myMat*x) - params.myMat*x) + params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*sumsquares(x)))
 
 # Solve the problem by calling solve!
 solve!(problem)
-
+println(x.value)
 # Check the status of the problem
 problem.status # :Optimal, :Infeasible, :Unbounded etc.
-
 # Get the optimum value
 problem.optval
+@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_bfgs)/norm(x.value))
