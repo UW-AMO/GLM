@@ -86,7 +86,8 @@ function fit_glm_lasso_exp(params::exp_params)
     f_exp_grad!(g, x_init, params)
     myF = DifferentiableFunction((x)->f_exp_val(x,params),
                                       (x,g)->f_exp_grad!(g,x,params))
-    results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-10, f_tol =1e-10))
+    #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-10, f_tol =1e-10))
+    results = Optim.optimize(myF, x_init, BFGS())
     return(results.minimizer)
 end
 
