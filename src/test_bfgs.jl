@@ -52,3 +52,7 @@ problem.status # :Optimal, :Infeasible, :Unbounded etc.
 # Get the optimum value
 problem.optval
 @printf("Relative error of our solution: %7.3e\n", norm(x.value - x_bfgs)/norm(x.value))
+@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
+
+#println(x_bfgs)
+#println(x.value)

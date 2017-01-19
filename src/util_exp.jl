@@ -52,7 +52,7 @@ function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
    # gradient of the elastic net
   # myg += params.λ*(params.α*sign(x) + 0.5*(1-params.α)*x)
   # copy!(g,myg)
-  copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0) + params.λ*(params.α*sign(x) + 0.5*(1-params.α)*x))
+  copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0) + params.λ*(params.α*sign(x) + (1-params.α)*x))
 end
 
 function f_exp_hess!(h::Matrix{Float64}, x::Vector{Float64}, params)
@@ -86,8 +86,8 @@ function fit_glm_lasso_exp(params::exp_params)
     f_exp_grad!(g, x_init, params)
     myF = DifferentiableFunction((x)->f_exp_val(x,params),
                                       (x,g)->f_exp_grad!(g,x,params))
-    #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-10, f_tol =1e-10))
-    results = Optim.optimize(myF, x_init, BFGS())
+    results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-3, f_tol =1e-3))
+    #results = Optim.optimize(myF, x_init, BFGS())
     return(results.minimizer)
 end
 
