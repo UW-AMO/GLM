@@ -22,13 +22,28 @@ end
 
 # \sum_{i} y_i \exp(<a_i, x>) - 1^TAx + λ(α||x||_1 + (1-α)/2 ||x||²)
 function f_exp_val(x, params)
-
     #BLAS.axpy!(params.myMat,x,rs)
     #rs = BLAS.gemv('N', 1.0, params.myMat, x)
     rs = params.myMat*x
     fs = (params.spec).*exp(rs) - rs
     f = sum(fs)+ params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*norm(x)^2)
    return f
+end
+
+function soft_thresh(x::Vector{Float64},lam::Float64)
+   return x-min(max(x,-lam),lam)
+end
+
+function f_exp_dual(z,params)
+    return norm(soft_thresh(params.myMat'*(z-params.spec)),params.λ*params.α)^2/(2*params.λ*(1-params.α)) + sum(z*(log(z) -(1.0+log(params.spec))))
+end
+
+function f_exp_dual_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
+  copy!(g, soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α)) + log(z) -log(params.spec)
+end
+
+function primal_from_dual(z::Vector{Float64}, params)
+    return soft_thresh(params.myMat'*(z-params.spec),params.λ*params.α)/(params.λ*(1-params.α))
 end
 
 function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
