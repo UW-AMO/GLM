@@ -34,7 +34,7 @@ params.α = α
 
 # use bfgs to solve the glm problem with exponential distribution
 x_bfgs = fit_glm_lasso_exp(params)
-
+x_from_dual = fit_glm_lasso_exp_dual(params)
 # use Convex.jl to solve the same problem, the solver is SCS
 
 # Create a (column vector) variable of size n x 1.
@@ -53,6 +53,10 @@ problem.status # :Optimal, :Infeasible, :Unbounded etc.
 problem.optval
 @printf("Relative error of our solution: %7.3e\n", norm(x.value - x_bfgs)/norm(x.value))
 @printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
+
+
+@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
+@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
 
 #println(x_bfgs)
 #println(x.value)

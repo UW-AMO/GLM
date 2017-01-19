@@ -30,16 +30,16 @@ function f_exp_val(x, params)
    return f
 end
 
-function soft_thresh(x::Vector{Float64},lam::Float64)
-   return x-min(max(x,-lam),lam)
+function soft_thresh(x::Vector{Float64},λ::Float64)
+   return x-min(max(x,-λ),λ)
 end
 
-function f_exp_dual(z,params)
-    return norm(soft_thresh(params.myMat'*(z-params.spec)),params.λ*params.α)^2/(2*params.λ*(1-params.α)) + sum(z*(log(z) -(1.0+log(params.spec))))
+function f_exp_val_dual(z,params)
+    return norm(soft_thresh(params.myMat'*(z-params.spec),(params.λ*params.α)))^2/(2*params.λ*(1-params.α)) + sum(z.*(log(z) -(1.0+log(params.spec))))
 end
 
-function f_exp_dual_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
-  copy!(g, soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α)) + log(z) -log(params.spec))
+function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
+  copy!(g, params.myMat*soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α))+ log(z) -log(params.spec))
 end
 
 function primal_from_dual(z::Vector{Float64}, params)
@@ -47,33 +47,7 @@ function primal_from_dual(z::Vector{Float64}, params)
 end
 
 function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
-  # rs = params.myMat*x
-  # ers = exp(rs).*params.spec
-  # m = length(params.spec)
-   #vA =  ContiguousView{Float64,1,Array{Float64,2}}[view(params.myMat',:,ii) for ii=1:m]
-
-   #gradient of the smooth part
-   #myg = zeros(size(g))
-
-   # don't need any of that crap, this is faster:
-#   myg = params.myMat'*(ers - 1)
-  #  for ii = 1:m
-  #    myg += params.spec[ii]*ers[ii]*params.myMat[ii,:]
-  #  end
-#   println(size(sum(params.myMat',2)))
-#   println(g)
-#   myg -= sum(params.myMat',2)
-
-   # gradient of the elastic net
-  # myg += params.λ*(params.α*sign(x) + 0.5*(1-params.α)*x)
-  # copy!(g,myg)
   copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0) + params.λ*(params.α*sign(x) + (1-params.α)*x))
-end
-
-function f_exp_hess!(h::Matrix{Float64}, x::Vector{Float64}, params)
-   rs = params.myMat*x
-   ers = (params.spec).*exp(rs)
-   copy!(h, params.myMat'*diagm(ers)*params.myMat+params.λ*(1-params.α)*eye(length(x)))
 end
 
 function simulate_AR1(n, phi; x0 = 0, mu = 0, sd = 1)
@@ -105,7 +79,20 @@ function fit_glm_lasso_exp(params::exp_params)
     results = Optim.optimize(myF, x_init, BFGS())
     return(results.minimizer)
 end
-
+function fit_glm_lasso_exp_dual(params::exp_params)
+    nvar = size(params.myMat, 1)
+    z_init = 10*ones(nvar)
+    g = zeros(nvar)
+    f = f_exp_val_dual(z_init, params)
+    f_exp_dual_grad!(g, z_init, params)
+    myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
+                                      (z,g)->f_exp_dual_grad!(g,z,params))
+    #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-3))
+    results = Optim.optimize(myF, z_init, BFGS())
+    dual = results.minimizer
+    primal = primal_from_dual(dual, params)
+    return(primal)
+end
 # coeffs is the coeffcients of the GLM model
 # x is the matrix of test data. each row is an example and each column is a variable
 # rtype: vector of the predi
