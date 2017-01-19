@@ -19,6 +19,18 @@ function f_exp_val(x::Vector{Float64}, params)
     f = sum(fs)+ params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*norm(x)^2)
    return f
 end
+
+# \sum_{i} y_i \exp(<a_i, x>) - 1^TAx + λ(α||x||_1 + (1-α)/2 ||x||²)
+function f_exp_val(x, params)
+
+    #BLAS.axpy!(params.myMat,x,rs)
+    #rs = BLAS.gemv('N', 1.0, params.myMat, x)
+    rs = params.myMat*x
+    fs = (params.spec).*exp(rs) - rs
+    f = sum(fs)+ params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*norm(x)^2)
+   return f
+end
+
 function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
   # rs = params.myMat*x
   # ers = exp(rs).*params.spec
