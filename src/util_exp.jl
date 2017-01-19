@@ -39,8 +39,14 @@ function f_exp_val_dual(z,params)
 end
 
 function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
-  copy!(g, params.myMat*soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α))+ log(z) -log(params.spec))
+  copy!(g, params.myMat*soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α))+ log(z) -(1.0+log(params.spec)))
 end
+
+
+function f_exp_dual_hess!(h::Matrix{Float64}, z::Vector{Float64}, params)
+   copy!(h, params.myMat*params.myMat'+diagm(1./z))
+end
+
 
 function primal_from_dual(z::Vector{Float64}, params)
     return soft_thresh(params.myMat'*(z-params.spec),params.λ*params.α)/(params.λ*(1-params.α))
@@ -81,15 +87,20 @@ function fit_glm_lasso_exp(params::exp_params)
 end
 function fit_glm_lasso_exp_dual(params::exp_params)
     nvar = size(params.myMat, 1)
-    z_init = 10*ones(nvar)
+    z_init = params.spec
     g = zeros(nvar)
     f = f_exp_val_dual(z_init, params)
     f_exp_dual_grad!(g, z_init, params)
-    myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
-                                      (z,g)->f_exp_dual_grad!(g,z,params))
+    println(norm(g))
+    #myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
+    #                                  (z,g)->f_exp_dual_grad!(g,z,params))
     #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-3))
+    myF = TwiceDifferentiableFunction((z)->f_exp_val_dual(z,params),
+                                      (z,g)->f_exp_dual_grad!(g,z,params), (z,h)->f_exp_dual_hess!(h,z,params))
     results = Optim.optimize(myF, z_init, BFGS())
+    println(results)
     dual = results.minimizer
+  #  println(dual)
     primal = primal_from_dual(dual, params)
     return(primal)
 end
