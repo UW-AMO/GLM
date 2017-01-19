@@ -39,7 +39,7 @@ function f_exp_dual(z,params)
 end
 
 function f_exp_dual_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
-  copy!(g, soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α)) + log(z) -log(params.spec)
+  copy!(g, soft_thresh(params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α)) + log(z) -log(params.spec))
 end
 
 function primal_from_dual(z::Vector{Float64}, params)
