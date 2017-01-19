@@ -74,7 +74,7 @@ function fit_glm_lasso_exp(params::exp_params)
     f_exp_grad!(g, x_init, params)
     myF = DifferentiableFunction((x)->f_exp_val(x,params),
                                       (x,g)->f_exp_grad!(g,x,params))
-    results = Optim.optimize(myF, x_init, BFGS())
+    results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-3, f_tol =1e-3))
     return(results.minimizer)
 end
 
@@ -95,6 +95,11 @@ function myperiodogram(data)
     tmp = abs2(data_fft[1:Int64(floor(N/2))])./N
     tmp = map(x -> max(0.01,x), tmp)
     freqs = collect(0:Int64(floor(N/2)-1))./N
+
+
+    # remove the data point corresponding to frequency zero
+    tmp = tmp[2:end]
+    freqs = freqs[2:end]
     return([tmp, freqs])
 end
 
@@ -103,10 +108,6 @@ function se_glm_lasso(data; order = 5, alpha = 1, nlambda = 100, k = 10, epsilon
 
     # step 1: compute the periodograms and corresponding frequencies
     spec, freq = myperiodogram(data)
-
-    # remove the data point corresponding to frequency zero
-    spec = spec[2:end]
-    freq = freq[2:end]
 
     # step 2: use GLM with EN regularization to fit polynomial
 
