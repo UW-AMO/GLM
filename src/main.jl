@@ -48,7 +48,7 @@ if profile
 
 else
 
-  @time  for i = 1:1000
+  @time  for i = 1:10
          results = optimize(myF, rand(size(x_init)), BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-5))
 #                                  Optim.Options(rel_tol = 1e-10, abs_tol = 1e-10))
         end
