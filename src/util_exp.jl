@@ -117,7 +117,7 @@ function se_glm_lasso(data; order = 5, alpha = 1, nlambda = 100, k = 10, epsilon
 
     res, lambda_best = glm_en_search_lambda(myMat, spec, alpha = alpha, epsilon = epsilon, nlambda = nlambda, k = k, ncore = ncore)
     p0_hat = exp(res[1])
-    println(p0_hat)
+#    println(p0_hat)
 
     # step 3: return the estimated standard error
     return(sqrt(p0_hat/N))

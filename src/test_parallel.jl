@@ -1,8 +1,8 @@
 workspace()
-using Optim
-using DataFrames
-include("util_exp.jl")
-include("kfold_cv.jl")
+@everywhere using Optim
+@everywhere using DataFrames
+@everywhere include("util_exp.jl")
+@everywhere include("kfold_cv.jl")
 
 
 # we are testing the standard error of the sample mean for AR1 with N(0,1) innovation
@@ -12,7 +12,7 @@ sd = 1
 
 
 # method 1: using Monte Carlo
-nsim = 500
+nsim = 100
 ndata = 100
 
 
@@ -27,11 +27,11 @@ sd_mc = std(means)
 
 # method 2: using our method
 
-se_glm = zeros(nsim)
-@time for i in 1:nsim
+
+@time se_glm = @parallel (vcat) for i in 1:nsim
     data_raw = simulate_AR1(ndata, phi)
     data = mu_IF(data_raw)
-    se_glm[i] = se_glm_lasso(data)
+    se_glm_lasso(data)
 end
 
 # println("The theoretical StdDev is $(sd/sqrt(ndata))")
