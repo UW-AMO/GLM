@@ -98,7 +98,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     converged = false
 
     # right now γ is set arbitrarily.
-    γ = 0.05
+    γ = 0.1
     tol = 1e-5
     iter = 0
     print = false
