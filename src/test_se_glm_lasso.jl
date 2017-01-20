@@ -17,7 +17,7 @@ sd = 1
 
 
 # method 1: using Monte Carlo
-nsim = 50
+nsim = 10
 ndata = 100
 
 
@@ -38,16 +38,17 @@ se_glm = zeros(nsim)
 
 @time for i in 1:nsim
 
+  println(i)
+  if profile
+    Profile.clear()
 
-if profile
-   Profile.clear()
+      @profile for i in 1:nsim
 
-    @profile for i in 1:nsim
-
-    data_raw = simulate_AR1(ndata, phi)
-    data = mu_IF(data_raw)
-    se_glm[i] = se_glm_lasso(data)
-   end
+        data_raw = simulate_AR1(ndata, phi)
+        data = mu_IF(data_raw)
+        se_glm[i] = se_glm_lasso(data)
+      end
+  end
 end
 
 

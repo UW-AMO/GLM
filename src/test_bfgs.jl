@@ -1,5 +1,5 @@
 workspace()
-using Optim
+using Optim, LineSearches
 using Convex
 using SCS
 include("util_exp.jl")
@@ -34,7 +34,8 @@ params.α = α
 
 # use bfgs to solve the glm problem with exponential distribution
 x_bfgs = fit_glm_lasso_exp(params)
-x_from_dual = fit_glm_lasso_exp_dual(params)
+#x_from_dual = fit_glm_lasso_exp_dual(params)
+x_prox = fit_prox_glm_lasso_exp(params)
 # use Convex.jl to solve the same problem, the solver is SCS
 
 # Create a (column vector) variable of size n x 1.
@@ -55,10 +56,16 @@ problem.optval
 @printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
 
 
-@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
-@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
+#@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
+#@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
+@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_prox)/norm(x.value))
+@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_prox[1])/abs(x.value[1]))
+
+
+
 println(x_bfgs)
-println(x_from_dual)
+#println(x_from_dual)
+println(x_prox)
 println(x.value)
 #println(x_bfgs)
 #println(x.value)

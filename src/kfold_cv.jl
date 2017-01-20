@@ -49,5 +49,5 @@ function glm_en_search_lambda(X, y; alpha = 1, epsilon = 0.001, nlambda = 100, k
     end
     lambda_best = lambdas[findmin(errors)[2]]
     myparams.λ = lambda_best
-    return([fit_glm_lasso_exp(myparams), lambda_best])
+    return([fit_prox_glm_lasso_exp(myparams), lambda_best])
 end
