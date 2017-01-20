@@ -66,6 +66,7 @@ end
 
 function f_exp_grad_smooth!(g::Vector{Float64}, x::Vector{Float64}, params)
   copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0))
+  return maximum(exp(params.myMat*x))
 end
 
 
@@ -90,24 +91,27 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     nvar = size(params.myMat, 2)
     x = zeros(nvar)
     x_old = zeros(nvar)
+    aNorm2 = vecnorm(params.myMat)^2
     g = zeros(nvar)
     f_val = x-> f_exp_val_smooth(x, params)
     g_val! = (g,x) -> f_exp_grad_smooth!(g, x, params)
     prox_fun = (x,γ)->prox_enet(x,γ,params)
-    g_val!(g,x)
+    Lip = g_val!(g,x)
     converged = false
 
     # right now γ is set arbitrarily.
-    γ = 0.1
-    tol = 1e-5
+    easy_γ = 0.2
+    tol = 1e-6
     iter = 0
     print = false
     while converged == false
       iter = iter + 1
       x_old = copy(x)
       f = f_val(x)
+      γ = 1/(Lip*aNorm2)
+      #println(γ)
       x = prox_fun(x - γ*g,γ)
-      g_val!(g,x)
+      Lip = g_val!(g,x)
       res = (x-x_old)/γ
       converged = (norm(res) < tol || iter > 100)
       if print

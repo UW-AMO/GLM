@@ -19,7 +19,7 @@ function glm_en_kfold_cv(params::exp_params;k::Int64 = 10, ncore = 1)
         myparams.spec = params.spec[train_idx]
 
         # fit glm-en model using the training set
-        coeffs[i, :] = fit_glm_lasso_exp(myparams)
+        coeffs[i, :] = fit_prox_glm_lasso_exp(myparams)
 
         # compute the predicted spec
         spec_predict = predict_glm_lasso_exp(params.myMat[test_idx, :], coeffs[i, :])
