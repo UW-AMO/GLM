@@ -1,7 +1,7 @@
 # function to fit glm-EN model using cross validation
 # params is a struct
 # params.order
-function glm_en_kfold_cv(params::exp_params;k::Int64 = 10, ncore = 1)
+function glm_en_kfold_cv(params::exp_params;k::Int64 = 10, ncore = 1, debug = false)
     ndata = length(params.spec)
     ntest = Int64(floor(ndata/k))
     myparams = exp_params()
@@ -25,16 +25,22 @@ function glm_en_kfold_cv(params::exp_params;k::Int64 = 10, ncore = 1)
         spec_predict = predict_glm_lasso_exp(params.myMat[test_idx, :], coeffs[i, :])
 
         # compute the RMSE on the test set
-        RMSEs[i] = sum((params.spec[test_idx] - spec_predict).^2) .^ 0.5
+        RMSEs[i] = (mean((params.spec[test_idx] - spec_predict).^2)) .^ 0.5
     end
-    return(mean(RMSEs))
+    if debug
+        return((mean(RMSEs), RMSEs))
+    else
+        return(mean(RMSEs))
+    end
+
 end
 
 # function to build a grid of λs and find the best one
 function glm_en_search_lambda(X, y; alpha = 1, epsilon = 0.001, nlambda = 100, k = 10, ncore = 1)
     ndata = length(y)
     nvar = size(X, 2)
-    lambda_max = findmax(X'*y)[1]/ndata/alpha
+#    lambda_max = findmax(X'*y)[1]/ndata/alpha
+    lambda_max = 1e3
     lambda_min = epsilon * lambda_max
     lambdas = exp(linspace(log(lambda_min), log(lambda_max), nlambda))
     errors = zeros(nlambda)
@@ -45,9 +51,27 @@ function glm_en_search_lambda(X, y; alpha = 1, epsilon = 0.001, nlambda = 100, k
     for i in 1:nlambda
         # for each lambda, run cross validation to estimate the error in test set
         myparams.λ = lambdas[i]
-        errors[i] = glm_en_kfold_cv(myparams, k = k, ncore = ncore)
+        errors[i] = glm_en_kfold_cv2(myparams, k)
     end
-    lambda_best = lambdas[findmin(errors)[2]]
+    idx_best = findmin(errors)[2]
+    lambda_best = lambdas[idx_best]
     myparams.λ = lambda_best
-    return([fit_prox_glm_lasso_exp(myparams), lambda_best])
+    return([fit_prox_glm_lasso_exp(myparams), lambda_best, lambda_max, lambda_min, errors, lambdas, idx_best])
+end
+
+function glm_en_kfold_cv2(params, k::Int64)
+    errors = zeros(k)
+    for i in 1:k
+        my_idx = sample(1:length(params.spec), Int64(floor(length(params.spec)/k)))
+        test_idx = setdiff(1:length(params.spec), my_idx)
+        my_params = exp_params()
+        my_params.myMat = params.myMat[my_idx,:]
+        my_params.spec = params.myMat[my_idx]
+        my_params.α = params.α
+        my_params.λ = params.λ
+        model = fit_prox_glm_lasso_exp(my_params)
+        predict_vals = predict_glm_lasso_exp(params.myMat[test_idx, :], model)
+        errors[i] = sqrt(mean(abs2(params.spec[test_idx] .- predict_vals)))
+    end
+    return(mean(errors))
 end
