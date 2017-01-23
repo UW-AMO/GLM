@@ -3,6 +3,8 @@
 type exp_params
     myMat::Matrix{Float64}
     spec::Vector{Float64}
+    fval::Function
+    gval::Function
     λ::Float64
     α::Float64
     exp_params() = new()
@@ -11,7 +13,6 @@ end
 
 # \sum_{i} y_i \exp(<a_i, x>) - 1^TAx + λ(α||x||_1 + (1-α)/2 ||x||²)
 function f_exp_val(x::Vector{Float64}, params)
-
     #BLAS.axpy!(params.myMat,x,rs)
     #rs = BLAS.gemv('N', 1.0, params.myMat, x)
     rs = params.myMat*x
@@ -21,13 +22,32 @@ function f_exp_val(x::Vector{Float64}, params)
 end
 
 function f_exp_val_smooth(x::Vector{Float64}, params)
-
     #BLAS.axpy!(params.myMat,x,rs)
     #rs = BLAS.gemv('N', 1.0, params.myMat, x)
     rs = params.myMat*x
     fs = (params.spec).*exp(rs) - rs
     f = sum(fs)
    return f
+end
+
+function f_exp_grad_smooth!(g::Vector{Float64}, x::Vector{Float64}, params)
+  copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0))
+  return maximum(exp(params.myMat*x))
+end
+
+
+function f_exp_val_smooth_id(x::Vector{Float64}, params)
+    #BLAS.axpy!(params.myMat,x,rs)
+    #rs = BLAS.gemv('N', 1.0, params.myMat, x)
+    rs = params.myMat*x
+    fs = -log(rs) + params.spec.*rs
+    f = sum(fs)
+   return f
+end
+
+function f_exp_grad_smooth_id!(g::Vector{Float64}, x::Vector{Float64}, params)
+  copy!(g, params.myMat'*(-1.0./(params.myMat*x) + params.spec))
+  return min(1./minimum((params.myMat*x).^2),1.0e4)
 end
 
 
@@ -43,11 +63,11 @@ end
 
 
 function f_exp_val_dual(z,params)
-    return norm(soft_thresh(-params.myMat'*(z-params.spec),(params.λ*params.α)))^2/(2*params.λ*(1-params.α)) + sum(z.*(log(z) -(1.0+log(params.spec))))
+    return norm(soft_thresh(-params.myMat'*(z-1.0),(params.λ*params.α)))^2/(2*params.λ*(1-params.α)) + sum(z.*(log(z) -(1.0+log(params.spec))))
 end
 
 function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
-  copy!(g, -params.myMat*soft_thresh(-params.myMat'*(z-params.spec), params.λ*params.α)/(params.λ*(1-params.α))+ log(z) -(1.0+log(params.spec)))
+  copy!(g, -params.myMat*soft_thresh(-params.myMat'*(z-1.0), params.λ*params.α)/(params.λ*(1-params.α))+ log(z) -(1.0+log(params.spec)))
 end
 
 
@@ -57,17 +77,13 @@ end
 
 
 function primal_from_dual(z::Vector{Float64}, params)
-    return soft_thresh(-params.myMat'*(z-params.spec),params.λ*params.α)/(params.λ*(1-params.α))
+    return soft_thresh(-params.myMat'*(z-1.0),params.λ*params.α)/(params.λ*(1-params.α))
 end
 
 function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
   copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0) + params.λ*(params.α*sign(x) + (1-params.α)*x))
 end
 
-function f_exp_grad_smooth!(g::Vector{Float64}, x::Vector{Float64}, params)
-  copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0))
-  return maximum(exp(params.myMat*x))
-end
 
 
 function simulate_AR1(n, phi; x0 = 0, mu = 0, sd = 1)
@@ -90,11 +106,12 @@ end
 function fit_prox_glm_lasso_exp(params::exp_params)
     nvar = size(params.myMat, 2)
     x = zeros(nvar)
+    x[1] = 2.0
     x_old = zeros(nvar)
     aNorm2 = vecnorm(params.myMat)^2
     g = zeros(nvar)
-    f_val = x-> f_exp_val_smooth(x, params)
-    g_val! = (g,x) -> f_exp_grad_smooth!(g, x, params)
+    f_val = params.fval #x-> f_exp_val_smooth(x, params)
+    g_val! = params.gval #(g,x) -> f_exp_grad_smooth!(g, x, params)
     prox_fun = (x,γ)->prox_enet(x,γ,params)
     Lip = g_val!(g,x)
     converged = false
@@ -107,6 +124,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     while converged == false
       iter = iter + 1
       x_old = copy(x)
+      assert(minimum(params.myMat*x) > 0)
       f = f_val(x)
       γ = 1/(Lip*aNorm2)
       #println(γ)

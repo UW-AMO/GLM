@@ -33,8 +33,14 @@ params.λ = λ
 params.α = α
 
 # use bfgs to solve the glm problem with exponential distribution
+#params.fval = x-> f_exp_val_smooth(x, params)
+#params.gval = (g,x) -> f_exp_grad_smooth!(g, x, params)
+
+params.fval = x-> f_exp_val_smooth_id(x, params)
+params.gval = (g,x) -> f_exp_grad_smooth_id!(g, x, params)
+
 x_bfgs = fit_glm_lasso_exp(params)
-#x_from_dual = fit_glm_lasso_exp_dual(params)
+#$x_from_dual = fit_glm_lasso_exp_dual(params)
 x_prox = fit_prox_glm_lasso_exp(params)
 # use Convex.jl to solve the same problem, the solver is SCS
 
@@ -56,10 +62,13 @@ problem.optval
 @printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
 
 
-#@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
+#@printf("Relative error of dual solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
 #@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
-@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_prox)/norm(x.value))
-@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_prox[1])/abs(x.value[1]))
+#@printf("Relative error dual first coefficient: %7.3e\n", abs(x.value[1] - x_form_dual[1])/abs(x.value[1]))
+
+
+@printf("Relative error of prox solution: %7.3e\n", norm(x.value - x_prox)/norm(x.value))
+@printf("Relative error prox first coefficient: %7.3e\n", abs(x.value[1] - x_prox[1])/abs(x.value[1]))
 
 
 
