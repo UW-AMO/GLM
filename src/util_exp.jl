@@ -24,6 +24,10 @@ end
 function soft_thresh(x::Vector{Float64},λ::Float64)
    return x-min(max(x,-λ),λ)
 end
+function inf_proj(x::Vector{Float64},λ::Float64)
+   return min(max(x,-λ),λ)
+end
+
 function prox_enet(x::Vector{Float64}, γ::Float64, params)
   a1 = params.λ*params.α
   a2 = params.λ*(1.0-params.α)
@@ -61,12 +65,12 @@ function f_exp_val_dual(z,params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
   assert(minimum(z) > 0)
-  return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -z))
+  return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -1.0))
 end
 function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
-  copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁)+ log(z) -(1.0+log(params.spec)))
+  copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁)+ log(z./params.spec))
 end
 function primal_from_dual(z::Vector{Float64}, params)
   a₁ = params.λ*params.α
