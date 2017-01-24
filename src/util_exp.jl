@@ -64,8 +64,12 @@ end
 function f_exp_val_dual(z,params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
-  assert(minimum(z) > 0)
-  return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -1.0))
+  if minimum(z) > 0
+    return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -1.0))
+  else
+    return Inf
+  end
+
 end
 function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
   a₁ = params.λ*params.α
@@ -165,11 +169,12 @@ function fit_glm_lasso_exp_dual(params::exp_params)
     #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-3))
     myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
                                       (z,g)->f_exp_dual_grad!(g,z,params))
-#    algo_bt = BFGS(;linesearch = LineSearches.backtracking!)
-    algo_bt = BFGS(;linesearch = LineSearches.morethuente!)
+   algo_bt = BFGS(;linesearch = LineSearches.backtracking!)
+   #algo_bt = BFGS(;linesearch = LineSearches.strongwolfe!)
+    #algo_bt = BFGS(;linesearch = LineSearches.morethuente!)
 
     #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-3))
-    results = Optim.optimize(myF, z_init, algo_bt)
+    results = Optim.optimize(myF, z_init, algo_bt,Optim.Options(x_tol = 1e-5, f_tol =1e-5, g_tol = 1e-5))
 
     println(results)
     dual = results.minimizer
