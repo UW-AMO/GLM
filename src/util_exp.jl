@@ -9,8 +9,6 @@ type exp_params
     α::Float64
     exp_params() = new()
 end
-
-
 # \sum_{i} y_i \exp(<a_i, x>) - 1^TAx + λ(α||x||_1 + (1-α)/2 ||x||²)
 function f_exp_val(x::Vector{Float64}, params)
     #BLAS.axpy!(params.myMat,x,rs)
@@ -20,7 +18,21 @@ function f_exp_val(x::Vector{Float64}, params)
     f = sum(fs)+ params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*norm(x)^2)
    return f
 end
+function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
+  copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0) + params.λ*(params.α*sign(x) + (1-params.α)*x))
+end
+function soft_thresh(x::Vector{Float64},λ::Float64)
+   return x-min(max(x,-λ),λ)
+end
+function prox_enet(x::Vector{Float64}, γ::Float64, params)
+  a1 = params.λ*params.α
+  a2 = params.λ*(1.0-params.α)
+  return soft_thresh(x/(1+a2*γ), a1*γ/(1+a2*γ))
+end
 
+#################################################################################
+# GLM functions
+#################################################################################
 function f_exp_val_smooth(x::Vector{Float64}, params)
     #BLAS.axpy!(params.myMat,x,rs)
     #rs = BLAS.gemv('N', 1.0, params.myMat, x)
@@ -29,13 +41,10 @@ function f_exp_val_smooth(x::Vector{Float64}, params)
     f = sum(fs)
    return f
 end
-
 function f_exp_grad_smooth!(g::Vector{Float64}, x::Vector{Float64}, params)
   copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0))
   return maximum(exp(params.myMat*x))
 end
-
-
 function f_exp_val_smooth_id(x::Vector{Float64}, params)
     #BLAS.axpy!(params.myMat,x,rs)
     #rs = BLAS.gemv('N', 1.0, params.myMat, x)
@@ -44,48 +53,28 @@ function f_exp_val_smooth_id(x::Vector{Float64}, params)
     f = sum(fs)
    return f
 end
-
 function f_exp_grad_smooth_id!(g::Vector{Float64}, x::Vector{Float64}, params)
   copy!(g, params.myMat'*(-1.0./(params.myMat*x) + params.spec))
   return min(1./minimum((params.myMat*x).^2),1.0e4)
 end
-
-
-function soft_thresh(x::Vector{Float64},λ::Float64)
-   return x-min(max(x,-λ),λ)
-end
-
-function prox_enet(x::Vector{Float64}, γ::Float64, params)
-  a1 = params.λ*params.α
-  a2 = params.λ*(1.0-params.α)
-  return soft_thresh(x/(1+a2*γ), a1*γ/(1+a2*γ))
-end
-
-
 function f_exp_val_dual(z,params)
-    return norm(soft_thresh(-params.myMat'*(z-1.0),(params.λ*params.α)))^2/(2*params.λ*(1-params.α)) + sum(z.*(log(z) -(1.0+log(params.spec))))
+  a₁ = params.λ*params.α
+  a₂ = params.λ*(1.0-params.α)
+    return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -z))
 end
-
 function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
-  copy!(g, -params.myMat*soft_thresh(-params.myMat'*(z-1.0), params.λ*params.α)/(params.λ*(1-params.α))+ log(z) -(1.0+log(params.spec)))
+  a₁ = params.λ*params.α
+  a₂ = params.λ*(1.0-params.α)
+  copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁)+ log(z) -(1.0+log(params.spec)))
 end
-
-
-function f_exp_dual_hess!(h::Matrix{Float64}, z::Vector{Float64}, params)
-   copy!(h, params.myMat*params.myMat'+diagm(1./z))
-end
-
-
 function primal_from_dual(z::Vector{Float64}, params)
-    return soft_thresh(-params.myMat'*(z-1.0),params.λ*params.α)/(params.λ*(1-params.α))
+  a₁ = params.λ*params.α
+  a₂ = params.λ*(1.0-params.α)
+    return (1/a₂)*soft_thresh(params.myMat'*(1.0-z),a₁)
 end
-
-function f_exp_grad!(g::Vector{Float64}, x::Vector{Float64}, params)
-  copy!(g, params.myMat'*(exp(params.myMat*x).*params.spec -1.0) + params.λ*(params.α*sign(x) + (1-params.α)*x))
-end
-
-
-
+#############################################################################################
+# Simulation functions
+#############################################################################################
 function simulate_AR1(n, phi; x0 = 0, mu = 0, sd = 1)
     ts = zeros(n+1)
     ts[1] = x0
@@ -95,14 +84,16 @@ function simulate_AR1(n, phi; x0 = 0, mu = 0, sd = 1)
     end
     return(ts[2:end])
 end
-
 function mu_IF(data::Vector{Float64})
     mu = mean(data)
     return(data - mu)
 end
 
-# fit glm lasso model with exponential distribution
+###############################################################################
+# Optimization routines 
+###############################################################################
 
+# fit glm lasso model with exponential distribution
 function fit_prox_glm_lasso_exp(params::exp_params)
     nvar = size(params.myMat, 2)
     x = zeros(nvar)
@@ -124,6 +115,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     while converged == false
       iter = iter + 1
       x_old = copy(x)
+      # TODO: make sure statement below always works by using a line search.
       assert(minimum(params.myMat*x) > 0)
       f = f_val(x)
       γ = 1/(Lip*aNorm2)
@@ -167,8 +159,8 @@ function fit_glm_lasso_exp_dual(params::exp_params)
     #myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
     #                                  (z,g)->f_exp_dual_grad!(g,z,params))
     #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-3))
-    myF = TwiceDifferentiableFunction((z)->f_exp_val_dual(z,params),
-                                      (z,g)->f_exp_dual_grad!(g,z,params), (z,h)->f_exp_dual_hess!(h,z,params))
+    myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
+                                      (z,g)->f_exp_dual_grad!(g,z,params))
 #    algo_bt = BFGS(;linesearch = LineSearches.backtracking!)
     algo_bt = BFGS(;linesearch = LineSearches.morethuente!)
 
