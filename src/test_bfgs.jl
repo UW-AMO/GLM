@@ -36,8 +36,8 @@ params.α = α
 #params.fval = x-> f_exp_val_smooth(x, params)
 #params.gval = (g,x) -> f_exp_grad_smooth!(g, x, params)
 
-params.fval = x-> f_exp_val_smooth_id(x, params)
-params.gval = (g,x) -> f_exp_grad_smooth_id!(g, x, params)
+params.fval = x-> f_exp_val_smooth(x, params)
+params.gval = (g,x) -> f_exp_grad_smooth!(g, x, params)
 
 x_bfgs = fit_glm_lasso_exp(params)
 x_from_dual = fit_glm_lasso_exp_dual(params)

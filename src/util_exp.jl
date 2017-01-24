@@ -60,7 +60,8 @@ end
 function f_exp_val_dual(z,params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
-    return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -z))
+  assert(minimum(z) > 0)
+  return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2 + sum(z.*(log(z./params.spec) -z))
 end
 function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
   a₁ = params.λ*params.α
@@ -90,7 +91,7 @@ function mu_IF(data::Vector{Float64})
 end
 
 ###############################################################################
-# Optimization routines 
+# Optimization routines
 ###############################################################################
 
 # fit glm lasso model with exponential distribution
@@ -131,7 +132,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     return x
 end
 
-
+# use BFGS on nonsmooth function
 function fit_glm_lasso_exp(params::exp_params)
     nvar = size(params.myMat, 2)
     x_init = rand(nvar)
@@ -148,8 +149,7 @@ function fit_glm_lasso_exp(params::exp_params)
     return(results.minimizer)
 end
 
-
-
+# use BFGS on smooth dual function, and recover primal from dual.
 function fit_glm_lasso_exp_dual(params::exp_params)
     nvar = size(params.myMat, 1)
     z_init = params.spec
@@ -171,7 +171,8 @@ function fit_glm_lasso_exp_dual(params::exp_params)
     dual = results.minimizer
   #  println(dual)
     primal = primal_from_dual(dual, params)
-    return(primal)
+    println(primal)
+    return primal
 end
 # coeffs is the coeffcients of the GLM model
 # x is the matrix of test data. each row is an example and each column is a variable
