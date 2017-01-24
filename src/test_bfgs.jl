@@ -32,17 +32,27 @@ params.spec = spec
 params.λ = λ
 params.α = α
 
-# use bfgs to solve the glm problem with exponential distribution
-#params.fval = x-> f_exp_val_smooth(x, params)
-#params.gval = (g,x) -> f_exp_grad_smooth!(g, x, params)
-
-params.fval = x-> f_exp_val_smooth(x, params)
-params.gval = (g,x) -> f_exp_grad_smooth!(g, x, params)
-
+# primal BFGS
+params.fval = f_exp_val
+params.gval = f_exp_grad!
 x_bfgs = fit_glm_lasso_exp(params)
+
+# dual bFGS
+params.fval = f_exp_val_dual
+params.gval = f_exp_dual_grad!
 x_from_dual = fit_glm_lasso_exp_dual(params)
-#x_prox = fit_prox_glm_lasso_exp(params)
+
+# via prox
+params.fval = f_exp_val_smooth
+params.gval = f_exp_grad_smooth!
+x_prox = fit_prox_glm_lasso_exp(params)
 # use Convex.jl to solve the same problem, the solver is SCS
+
+# primal BFGS id link
+params.fval = f_exp_val_id
+params.gval = f_exp_grad_id!
+x_new = fit_glm_lasso_exp(params)
+
 
 # Create a (column vector) variable of size n x 1.
 x = Variable(order + 1)
@@ -58,23 +68,27 @@ println(x.value)
 problem.status # :Optimal, :Infeasible, :Unbounded etc.
 # Get the optimum value
 problem.optval
-@printf("Relative error of our solution: %7.3e\n", norm(x.value - x_bfgs)/norm(x.value))
-@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
+@printf("Relative error of bfgs solution: %7.3e\n", norm(x.value - x_bfgs)/norm(x.value))
+@printf("Relative error first bfgs coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
 
 
 @printf("Relative error of dual solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
-@printf("Relative error first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
+@printf("Relative error dual first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
 #@printf("Relative error dual first coefficient: %7.3e\n", abs(x.value[1] - x_form_dual[1])/abs(x.value[1]))
 
 
-#@printf("Relative error of prox solution: %7.3e\n", norm(x.value - x_prox)/norm(x.value))
-#@printf("Relative error prox first coefficient: %7.3e\n", abs(x.value[1] - x_prox[1])/abs(x.value[1]))
+@printf("Relative error of prox solution: %7.3e\n", norm(x.value - x_prox)/norm(x.value))
+@printf("Relative error prox first coefficient: %7.3e\n", abs(x.value[1] - x_prox[1])/abs(x.value[1]))
 
-
-
-println(x_bfgs)
-println(x_from_dual)
-#println(x_prox)
-println(x.value)
+println("Convex.JL")
+println(round(x.value[1],2))
+println("Prox")
+println(round(x_prox[1],2))
+println("BFGS")
+println(round(x_bfgs[1],2))
+println("BFGS Dual")
+println(round(x_from_dual[1],2))
+println("BFGS (ID link)")
+println(round(x_new[1],2))
 #println(x_bfgs)
 #println(x.value)

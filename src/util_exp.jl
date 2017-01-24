@@ -53,14 +53,31 @@ function f_exp_val_smooth_id(x::Vector{Float64}, params)
     #BLAS.axpy!(params.myMat,x,rs)
     #rs = BLAS.gemv('N', 1.0, params.myMat, x)
     rs = params.myMat*x
-    fs = -log(rs) + params.spec.*rs
-    f = sum(fs)
-   return f
+    if minimum(rs) > 0
+      return -sum(log(rs)) + dot(params.spec, rs)
+    else
+      return Inf
+    end
 end
 function f_exp_grad_smooth_id!(g::Vector{Float64}, x::Vector{Float64}, params)
   copy!(g, params.myMat'*(-1.0./(params.myMat*x) + params.spec))
   return min(1./minimum((params.myMat*x).^2),1.0e4)
 end
+function f_exp_val_id(x::Vector{Float64}, params)
+    #BLAS.axpy!(params.myMat,x,rs)
+    #rs = BLAS.gemv('N', 1.0, params.myMat, x)
+    rs = params.myMat*x
+    if minimum(rs) > 0
+      return -sum(log(rs)) + dot(params.spec, rs) + params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*norm(x)^2)
+    else
+      return Inf
+    end
+end
+function f_exp_grad_id!(g::Vector{Float64}, x::Vector{Float64}, params)
+  copy!(g, params.myMat'*(-1.0./(params.myMat*x) + params.spec)+ params.λ*(params.α*sign(x) + (1-params.α)*x))
+  return min(1./minimum((params.myMat*x).^2),1.0e4)
+end
+
 function f_exp_val_dual(z,params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
@@ -106,14 +123,14 @@ end
 function fit_prox_glm_lasso_exp(params::exp_params)
     nvar = size(params.myMat, 2)
     x = zeros(nvar)
-    x[1] = 2.0
+    #x[1] = 2.0
     x_old = zeros(nvar)
     aNorm2 = vecnorm(params.myMat)^2
     g = zeros(nvar)
-    f_val = params.fval #x-> f_exp_val_smooth(x, params)
-    g_val! = params.gval #(g,x) -> f_exp_grad_smooth!(g, x, params)
+    f_val = x->params.fval(x,params) #x-> f_exp_val_smooth(x, params)
+    g_val = (x,g)->params.gval(x,g,params) #(g,x) -> f_exp_grad_smooth!(g, x, params)
     prox_fun = (x,γ)->prox_enet(x,γ,params)
-    Lip = g_val!(g,x)
+    Lip = g_val(g,x)
     converged = false
 
     # right now γ is set arbitrarily.
@@ -125,12 +142,12 @@ function fit_prox_glm_lasso_exp(params::exp_params)
       iter = iter + 1
       x_old = copy(x)
       # TODO: make sure statement below always works by using a line search.
-      assert(minimum(params.myMat*x) > 0)
+      #assert(minimum(params.myMat*x) > 0)
       f = f_val(x)
       γ = 1/(Lip*aNorm2)
       #println(γ)
       x = prox_fun(x - γ*g,γ)
-      Lip = g_val!(g,x)
+      Lip = g_val(g,x)
       res = (x-x_old)/γ
       converged = (norm(res) < tol || iter > 100)
       if print
@@ -145,10 +162,12 @@ function fit_glm_lasso_exp(params::exp_params)
     nvar = size(params.myMat, 2)
     x_init = rand(nvar)
     g = zeros(nvar)
-    f = f_exp_val(x_init, params)
-    f_exp_grad!(g, x_init, params)
-    myF = DifferentiableFunction((x)->f_exp_val(x,params),
-                                      (x,g)->f_exp_grad!(g,x,params))
+    fval = params.fval
+    gval = params.gval
+    f = fval(x_init, params)
+    gval(g, x_init, params)
+    myF = DifferentiableFunction((x)->fval(x,params),
+                                      (x,g)->gval(g,x,params))
     #algo_bt = BFGS(;linesearch = LineSearches.backtracking!)
     #algo_bt = BFGS(;linesearch = LineSearches.morethuente!)
     algo_bt = BFGS(;linesearch = LineSearches.strongwolfe!)
@@ -162,13 +181,15 @@ function fit_glm_lasso_exp_dual(params::exp_params)
     nvar = size(params.myMat, 1)
     z_init = params.spec
     g = zeros(nvar)
-    f = f_exp_val_dual(z_init, params)
-    f_exp_dual_grad!(g, z_init, params)
+    fval = params.fval
+    gval = params.gval
+    f = fval(z_init, params)
+    gval(g, z_init, params)
     #myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
     #                                  (z,g)->f_exp_dual_grad!(g,z,params))
     #results = Optim.optimize(myF, x_init, BFGS(), Optim.Options(x_tol = 1e-5, f_tol =1e-3))
-    myF = DifferentiableFunction((z)->f_exp_val_dual(z,params),
-                                      (z,g)->f_exp_dual_grad!(g,z,params))
+    myF = DifferentiableFunction((z)->fval(z,params),
+                                      (z,g)->gval(g,z,params))
    algo_bt = BFGS(;linesearch = LineSearches.backtracking!)
    #algo_bt = BFGS(;linesearch = LineSearches.strongwolfe!)
     #algo_bt = BFGS(;linesearch = LineSearches.morethuente!)
@@ -180,7 +201,7 @@ function fit_glm_lasso_exp_dual(params::exp_params)
     dual = results.minimizer
   #  println(dual)
     primal = primal_from_dual(dual, params)
-    println(primal)
+#    println(primal)
     return primal
 end
 # coeffs is the coeffcients of the GLM model
