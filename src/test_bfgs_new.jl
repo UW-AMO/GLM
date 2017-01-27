@@ -8,7 +8,7 @@ include("kfold_cv.jl")
 
 myMat = convert(Matrix{Float64}, readtable("../data/VandermondeMatrix.csv"))
 specs = convert(Matrix{Float64}, readtable("../data/b_VandermondeMatrix.csv"))
-spec = specs[:,1]
+spec = specs[:,20]
 X_true = convert(Matrix{Float64}, readtable("../data/trueSol.csv"))
 x_true = X_true[:,1]
 X0 = convert(Matrix{Float64}, readtable("../data/startSol.csv"))
