@@ -10,7 +10,7 @@ phi = 0.3
 mu = 0
 sd = 1
 
-ndata = 10
+ndata = 100
 
 data = simulate_AR1(ndata, phi)
 spec, freq = myperiodogram(data)
