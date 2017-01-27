@@ -142,16 +142,18 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     iter = 0
     print = true
     step_scale = 1.9
+    t = 1.0 
+    y = copy(x)
     while converged == false
       iter = iter + 1
       x_old = copy(x)
-      # TODO: make sure statement below always works by using a line search.
-      #assert(minimum(params.myMat*x) > 0)
       f = f_val(x)
       γ = step_scale/(Lip*aNorm2)
-      #println(γ)
-      x = prox_fun(x - γ*g,γ)
-      Lip = g_val!(g,x)
+      x = prox_fun(y - γ*g,γ)
+      t_old = t
+      t = 1.0 + 0.5*sqrt(1.0+4.0*t_old)
+      y = x + ((t_old-1.0)/t)*(x-x_old)
+      Lip = g_val!(g,y)
       res = (x-x_old)/γ
       converged = (norm(res) < tol || iter > params.iter_max)
       if print

@@ -55,34 +55,34 @@ doConvex = true
 
 if doConvex
     # Create a (column vector) variable of size n x 1.
-    x = Variable(order + 1)
+    xx = Variable(order + 1)
 
     # The problem is to minimize ||Ax - b||^2 subject to x >= 0
     # This can be done by: minimize(objective, constraints)
-    problem = minimize(sum((params.spec).*exp(params.myMat*x) - params.myMat*x) + params.λ*(params.α*norm(x,1) +0.5*(1-params.α)*sumsquares(x)))
+    problem = minimize(sum((params.spec).*exp(params.myMat*xx) - params.myMat*xx) + params.λ*(params.α*norm(xx,1) +0.5*(1-params.α)*sumsquares(xx)))
 
     # Solve the problem by calling solve!
     solve!(problem)
-    println(x.value)
+    println(xx.value)
     # Check the status of the problem
     problem.status # :Optimal, :Infeasible, :Unbounded etc.
     # Get the optimum value
     problem.optval
-    @printf("Relative error of bfgs solution: %7.3e\n", norm(x.value - x_bfgs)/norm(x.value))
-    @printf("Relative error first bfgs coefficient: %7.3e\n", abs(x.value[1] - x_bfgs[1])/abs(x.value[1]))
+    @printf("Relative error of bfgs solution: %7.3e\n", norm(xx.value - x_bfgs)/norm(xx.value))
+    @printf("Relative error first bfgs coefficient: %7.3e\n", abs(xx.value[1] - x_bfgs[1])/abs(xx.value[1]))
 
     if dualBFGS
-        @printf("Relative error of dual solution: %7.3e\n", norm(x.value - x_from_dual)/norm(x.value))
-        @printf("Relative error dual first coefficient: %7.3e\n", abs(x.value[1] - x_from_dual[1])/abs(x.value[1]))
+        @printf("Relative error of dual solution: %7.3e\n", norm(xx.value - x_from_dual)/norm(xx.value))
+        @printf("Relative error dual first coefficient: %7.3e\n", abs(xx.value[1] - x_from_dual[1])/abs(xx.value[1]))
         #@printf("Relative error dual first coefficient: %7.3e\n", abs(x.value[1] - x_form_dual[1])/abs(x.value[1]))
     end
 
 
-    @printf("Relative error of prox solution: %7.3e\n", norm(x.value - x_prox)/norm(x.value))
-    @printf("Relative error prox first coefficient: %7.3e\n", abs(x.value[1] - x_prox[1])/abs(x.value[1]))
+    @printf("Relative error of prox solution: %7.3e\n", norm(xx.value - x_prox)/norm(xx.value))
+    @printf("Relative error prox first coefficient: %7.3e\n", abs(xx.value[1] - x_prox[1])/abs(xx.value[1]))
 
     println("Convex.JL")
-    println(round(x.value,2))
+    println(round(xx.value,2))
 end
 println("Prox")
 println(round(x_prox,2))
