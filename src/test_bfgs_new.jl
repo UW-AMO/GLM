@@ -23,29 +23,31 @@ params.myMat = myMat
 params.spec = spec
 params.λ = λ
 params.α = α
+params.iter_max = 10000
+params.tol = 1e-4
 
 # primal BFGS
 params.fval = f_exp_val
-params.gval = f_exp_grad!
+params.gval! = f_exp_grad!
 x_bfgs = fit_glm_lasso_exp(params)
 
 dualBFGS = false
 if dualBFGS
     # dual bFGS
     params.fval = f_exp_val_dual
-    params.gval = f_exp_dual_grad!
+    params.gval! = f_exp_dual_grad!
     x_from_dual = fit_glm_lasso_exp_dual(params)
 end
 
 # via prox
 params.fval = f_exp_val_smooth
-params.gval = f_exp_grad_smooth!
+params.gval! = f_exp_grad_smooth!
 x_prox = fit_prox_glm_lasso_exp(params)
 # use Convex.jl to solve the same problem, the solver is SCS
 
 # primal BFGS id link
 params.fval = f_exp_val_id
-params.gval = f_exp_grad_id!
+params.gval! = f_exp_grad_id!
 x_new = fit_glm_lasso_exp(params)
 
 
