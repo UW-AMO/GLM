@@ -36,6 +36,22 @@ function prox_enet(x::Vector{Float64}, γ::Float64, params)
   return soft_thresh(x/(1+a2*γ), a1*γ/(1+a2*γ))
 end
 
+function prox_zlz(x::Vector{Float64}, γ::Float64, params)
+      z = params.spec
+      res = 1.0
+      mytol = 1e-10
+      print = false
+      itr = 0
+      while norm(res) > mytol
+        itr = itr + 1
+        res = x-z-γ*log(z./params.spec)
+        if print
+          println(norm(res))
+        end
+         z = z + (res)./(1.0 + γ./z)
+      end
+   return z
+end
 #################################################################################
 # GLM functions
 #################################################################################
@@ -95,6 +111,22 @@ function f_exp_dual_grad!(g::Vector{Float64}, z::Vector{Float64}, params)
   a₂ = params.λ*(1.0-params.α)
   copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁)+ log(z./params.spec))
 end
+function f_exp_val_dual_smooth(z,params)
+  a₁ = params.λ*params.α
+  a₂ = params.λ*(1.0-params.α)
+  if minimum(z) > 0
+    return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2
+  else
+    return Inf
+  end
+
+end
+function f_exp_dual_grad_smooth!(g::Vector{Float64}, z::Vector{Float64}, params)
+  a₁ = params.λ*params.α
+  a₂ = params.λ*(1.0-params.α)
+  copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁))
+end
+
 function primal_from_dual(z::Vector{Float64}, params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
@@ -142,7 +174,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     iter = 0
     print = true
     step_scale = 1.9
-    t = 1.0 
+    t = 1.0
     y = copy(x)
     while converged == false
       iter = iter + 1

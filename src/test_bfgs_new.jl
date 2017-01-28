@@ -18,6 +18,8 @@ order = size(myMat, 2)-1
 λ = 0.2
 α = 1.0
 
+
+
 params = exp_params()
 params.myMat = myMat
 params.spec = spec
@@ -25,6 +27,10 @@ params.λ = λ
 params.α = α
 params.iter_max = 10000
 params.tol = 1e-4
+
+
+myx = prox_zlz(rand(m), 0.2, params)
+return
 
 # primal BFGS
 params.fval = f_exp_val
