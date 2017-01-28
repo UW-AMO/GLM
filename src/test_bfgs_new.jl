@@ -16,7 +16,7 @@ x0 = X0[:,1]
 m = length(spec) # number of rows
 order = size(myMat, 2)-1
 λ = 0.2
-α = 1.0
+α = 0.9
 
 
 
@@ -27,8 +27,9 @@ params.λ = λ
 params.α = α
 params.iter_max = 10000
 params.tol = 1e-4
-
-
+params.prox = prox_enet
+params.xIn = x0
+params.print_frequency = 100
 myx = prox_zlz(rand(m), 0.2, params)
 return
 
@@ -50,6 +51,18 @@ params.fval = f_exp_val_smooth
 params.gval! = f_exp_grad_smooth!
 x_prox = fit_prox_glm_lasso_exp(params)
 # use Convex.jl to solve the same problem, the solver is SCS
+
+
+dualProx = true
+if dualProx
+    params.fval = f_exp_val_dual_smooth
+    params.gval! = f_exp_dual_grad_smooth!
+    params.prox = prox_zlz
+    params.xIn = myMat*x0 # dual starting point
+    z_dual = fit_prox_glm_lasso_exp(params)
+    x_prox_dual = primal_from_dual(z_dual, params)
+end
+
 
 # primal BFGS id link
 params.fval = f_exp_val_id
@@ -87,6 +100,10 @@ if doConvex
     @printf("Relative error of prox solution: %7.3e\n", norm(xx.value - x_prox)/norm(xx.value))
     @printf("Relative error prox first coefficient: %7.3e\n", abs(xx.value[1] - x_prox[1])/abs(xx.value[1]))
 
+    if dualProx
+      @printf("Relative error of dual prox solution: %7.3e\n", norm(xx.value - x_prox_dual)/norm(xx.value))
+      @printf("Relative error dual prox first coefficient: %7.3e\n", abs(xx.value[1] - x_prox_dual[1])/abs(xx.value[1]))
+    end
     println("Convex.JL")
     println(round(xx.value,2))
 end
@@ -97,6 +114,10 @@ println(round(x_bfgs,2))
 if dualBFGS
     println("BFGS Dual")
     println(round(x_from_dual,2))
+end
+if dualProx
+    println("Prox Dual")
+    println(round(x_prox_dual,2))
 end
 println("True Params")
 println(round(x_true,2))

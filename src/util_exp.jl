@@ -3,8 +3,11 @@
 type exp_params
     myMat::Matrix{Float64}
     spec::Vector{Float64}
+    xIn::Vector{Float64}
+    print_frequency::Int64
     fval::Function
     gval!::Function
+    prox::Function
     λ::Float64
     α::Float64
     iter_max::Int64
@@ -39,16 +42,19 @@ end
 function prox_zlz(x::Vector{Float64}, γ::Float64, params)
       z = params.spec
       res = 1.0
-      mytol = 1e-10
+      mytol = 1e-5
       print = false
       itr = 0
-      while norm(res) > mytol
+      while norm(res, Inf) > mytol
         itr = itr + 1
-        res = x-z-γ*log(z./params.spec)
+        #res = x-z-γ*log(z./params.spec)
+        res = x-z-γ*log(z)
         if print
           println(norm(res))
         end
          z = z + (res)./(1.0 + γ./z)
+         #z = max(z, 1.0e-6)
+         assert(minimum(z)>0)
       end
    return z
 end
@@ -115,7 +121,7 @@ function f_exp_val_dual_smooth(z,params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
   if minimum(z) > 0
-    return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2
+    return (1/(2*a₂))*norm(soft_thresh(params.myMat'*(1.0-z),a₁))^2-sum(z.*log(params.spec))
   else
     return Inf
   end
@@ -124,7 +130,8 @@ end
 function f_exp_dual_grad_smooth!(g::Vector{Float64}, z::Vector{Float64}, params)
   a₁ = params.λ*params.α
   a₂ = params.λ*(1.0-params.α)
-  copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁))
+  copy!(g, -(1/a₂)*params.myMat*soft_thresh(params.myMat'*(1.0-z), a₁)-log(params.spec))
+  return 1/a₂ # true lipschitz constant
 end
 
 function primal_from_dual(z::Vector{Float64}, params)
@@ -155,15 +162,15 @@ end
 
 # fit glm lasso model with exponential distribution
 function fit_prox_glm_lasso_exp(params::exp_params)
-    nvar = size(params.myMat, 2)
-    x = zeros(nvar)
+    x = params.xIn
+    nvar = size(x)
     #x[1] = 2.0
     x_old = zeros(nvar)
     aNorm2 = vecnorm(params.myMat)^2
     g = zeros(nvar)
     f_val = x->params.fval(x,params) #x-> f_exp_val_smooth(x, params)
     g_val! = (x,g)->params.gval!(x,g,params) #(g,x) -> f_exp_grad_smooth!(g, x, params)
-    prox_fun = (x,γ)->prox_enet(x,γ,params)
+    prox_fun = (x,γ)->params.prox(x,γ,params)
     Lip = g_val!(g,x)
     converged = false
 
@@ -173,9 +180,10 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     iter_max = params.iter_max
     iter = 0
     print = true
-    step_scale = 1.9
+    step_scale = 1.45
     t = 1.0
     y = copy(x)
+    FISTA = true
     while converged == false
       iter = iter + 1
       x_old = copy(x)
@@ -184,12 +192,19 @@ function fit_prox_glm_lasso_exp(params::exp_params)
       x = prox_fun(y - γ*g,γ)
       t_old = t
       t = 1.0 + 0.5*sqrt(1.0+4.0*t_old)
-      y = x + ((t_old-1.0)/t)*(x-x_old)
+      if FISTA
+        y = x + ((t_old-1.0)/t)*(x-x_old)
+      else
+        y=x
+      end
+
       Lip = g_val!(g,y)
       res = (x-x_old)/γ
       converged = (norm(res) < tol || iter > params.iter_max)
       if print
-        @printf("iter: %d, val: %7.2e, conv: %7.2e\n", iter, f, norm(res))
+        if mod(iter, params.print_frequency) == 0
+          @printf("iter: %d, val: %7.2e, conv: %7.2e\n", iter, f, norm(res))
+        end
       end
     end
     return x
