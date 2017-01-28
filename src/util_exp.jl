@@ -40,7 +40,8 @@ function prox_enet(x::Vector{Float64}, γ::Float64, params)
 end
 
 function prox_zlz(x::Vector{Float64}, γ::Float64, params)
-      z = params.spec
+      z = γ*ones(size(x))*1.0e-3#params.spec
+      #z = exp(x/γ)
       res = 1.0
       mytol = 1e-5
       print = false
@@ -49,6 +50,7 @@ function prox_zlz(x::Vector{Float64}, γ::Float64, params)
         itr = itr + 1
         #res = x-z-γ*log(z./params.spec)
         res = x-z-γ*log(z)
+        #@printf("min x: %7.2e, min res: %7.2e, γ: %7.2e\n", minimum(x), minimum(res), γ)
         if print
           println(norm(res))
         end
@@ -180,7 +182,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     iter_max = params.iter_max
     iter = 0
     print = true
-    step_scale = 1.45
+    step_scale = 1.3
     t = 1.0
     y = copy(x)
     FISTA = true
