@@ -54,7 +54,7 @@ function prox_zlz(x::Vector{Float64}, γ::Float64, params)
         if print
           println(norm(res))
         end
-         z = z + (res)./(1.0 + γ./z)
+         z = z + (res)./(1.0 + γ./abs(z))
          #z = max(z, 1.0e-6)
          assert(minimum(z)>0)
       end
@@ -182,7 +182,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     iter_max = params.iter_max
     iter = 0
     print = true
-    step_scale = 1.3
+    step_scale = 1.4
     t = 1.0
     y = copy(x)
     FISTA = true
