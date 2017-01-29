@@ -30,8 +30,8 @@ params.tol = 1e-4
 params.prox = prox_enet
 params.xIn = x0
 params.print_frequency = 100
-myx = prox_zlz(rand(m), 0.2, params)
-return
+params.use_nn_step = false
+
 
 # primal BFGS
 params.fval = f_exp_val
@@ -58,7 +58,8 @@ if dualProx
     params.fval = f_exp_val_dual_smooth
     params.gval! = f_exp_dual_grad_smooth!
     params.prox = prox_zlz
-    params.xIn = myMat*x0 # dual starting point
+    params.xIn = params.spec # dual starting point
+    params.use_nn_step = true # need to keep z >= 0 by line search
     z_dual = fit_prox_glm_lasso_exp(params)
     x_prox_dual = primal_from_dual(z_dual, params)
 end

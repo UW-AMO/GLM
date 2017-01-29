@@ -8,6 +8,7 @@ type exp_params
     fval::Function
     gval!::Function
     prox::Function
+    use_nn_step::Bool
     λ::Float64
     α::Float64
     iter_max::Int64
@@ -40,8 +41,8 @@ function prox_enet(x::Vector{Float64}, γ::Float64, params)
 end
 
 function prox_zlz(x::Vector{Float64}, γ::Float64, params)
-      z = γ*ones(size(x))*1.0e-3#params.spec
-      #z = exp(x/γ)
+      #z = γ*ones(size(x))*1.0e-3#params.spec
+      z = params.spec
       res = 1.0
       mytol = 1e-5
       print = false
@@ -54,9 +55,9 @@ function prox_zlz(x::Vector{Float64}, γ::Float64, params)
         if print
           println(norm(res))
         end
-         z = z + (res)./(1.0 + γ./abs(z))
+         z = z + (res)./(1.0 + γ./z)
          #z = max(z, 1.0e-6)
-         assert(minimum(z)>0)
+         #assert(minimum(z)>0)
       end
    return z
 end
@@ -173,6 +174,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     f_val = x->params.fval(x,params) #x-> f_exp_val_smooth(x, params)
     g_val! = (x,g)->params.gval!(x,g,params) #(g,x) -> f_exp_grad_smooth!(g, x, params)
     prox_fun = (x,γ)->params.prox(x,γ,params)
+    use_nn_step = params.use_nn_step
     Lip = g_val!(g,x)
     converged = false
 
@@ -182,7 +184,7 @@ function fit_prox_glm_lasso_exp(params::exp_params)
     iter_max = params.iter_max
     iter = 0
     print = true
-    step_scale = 1.4
+    step_scale = 1.5
     t = 1.0
     y = copy(x)
     FISTA = true
@@ -191,7 +193,32 @@ function fit_prox_glm_lasso_exp(params::exp_params)
       x_old = copy(x)
       f = f_val(x)
       γ = step_scale/(Lip*aNorm2)
-      x = prox_fun(y - γ*g,γ)
+      γ_nn = 0.0
+
+      # needed for all zlogz type stuff
+      dy = -γ*g
+      if use_nn_step
+        assert(minimum(y) > 0)
+        ratio = dy./y
+        r_max = maximum(-ratio)
+#        println(r_max)
+        if r_max <= 0.0
+          γ_nn = 1.0
+        else
+#          println(ratio)
+          rNeg = -1.0./ratio[find(x->x<0.0, ratio)]
+          maxNeg = minimum(rNeg)
+          γ_nn = 0.99*min(1.0, maxNeg)
+        end
+      end
+      if use_nn_step
+        assert(minimum(y+γ_nn*dy) > 0)
+        x = prox_fun(y + γ_nn*dy,γ*γ_nn)
+      else
+        x = prox_fun(y-γ*g, γ)
+      end
+
+
       t_old = t
       t = 1.0 + 0.5*sqrt(1.0+4.0*t_old)
       if FISTA
